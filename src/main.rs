@@ -1,5 +1,6 @@
-use std::fmt::Debug;
-
+use rand::Rng;
+use rand::rngs::ThreadRng;
+use std::time::Instant;
 
 fn is_sorted<T: PartialOrd>(list: &Vec<T>) -> bool {
     let mut previous_item_option: Option<&T> = None;
@@ -63,6 +64,28 @@ fn merge_sort<T: PartialOrd + Clone>(list: &Vec<T>) -> Vec<T>{
         let pivot: usize = list.len() / 2;
         zip(&merge_sort(&list[0..pivot].to_vec()), &merge_sort(&list[pivot..list.len()].to_vec()))
     }
+}
+
+fn random_range(rng: &mut ThreadRng, n: usize, lower: usize, upper: usize) -> Vec<usize> {
+    (0..n).map(|_| rng.gen_range(lower..upper)).collect::<Vec<usize>>()
+}
+
+fn main() {
+    let mut rng = rand::thread_rng();
+    let list = random_range(&mut rng, 10_000, 0, 100);
+    assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
+
+    let start = Instant::now();
+    let merge_sorted = merge_sort(&list);
+    assert!(is_sorted(&merge_sorted));
+    let duration = start.elapsed();
+    println!("Successfully sorted using merge sort in {:#?}!", duration);
+
+    let start = Instant::now();
+    let bubble_sorted = bubble_sort(&list);
+    assert!(is_sorted(&bubble_sorted));
+    let duration = start.elapsed();
+    println!("Successfully sorted using bubble sort in {:?}!", duration);
 }
 
 #[test]
