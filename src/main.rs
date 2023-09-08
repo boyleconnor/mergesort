@@ -18,14 +18,11 @@ fn is_sorted<T: PartialOrd>(list: &Vec<T>) -> bool {
 
 fn bubble_sort<T: PartialOrd + Clone>(list: &Vec<T>) -> Vec<T> {
     let mut sortable_list = list.clone();
-    // FIXME: This is the extra-dumb version of bubble sort; consider improving
-    for _ in 0..sortable_list.len() {
-        for j in 1..sortable_list.len() {
+    let len = sortable_list.len();
+    for i in 0..len {
+        for j in 1..len-i {
             if sortable_list[j-1] > sortable_list[j] {
-                // FIXME: Why are these `.clone()`s necessary?
-                let swap = sortable_list[j-1].clone();
-                sortable_list[j-1] = sortable_list[j].clone();
-                sortable_list[j] = swap;
+                sortable_list.swap(j-1, j);
             }
         }
     }
