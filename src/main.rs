@@ -1,6 +1,7 @@
 use rand::Rng;
 use rand::rngs::ThreadRng;
 use std::time::Instant;
+use std::thread;
 
 fn is_sorted<T: PartialOrd>(list: &Vec<T>) -> bool {
     let mut previous_item_option: Option<&T> = None;
@@ -63,6 +64,21 @@ fn merge_sort<T: PartialOrd + Clone>(list: &Vec<T>) -> Vec<T>{
     }
 }
 
+fn parallel_merge_sort<T: PartialOrd + Clone + Send + 'static>(list: Vec<T>, parallelism_depth: u8) -> Vec<T> {
+    if list.len() == 1 {
+        list
+    } else if parallelism_depth > 0 {
+        let pivot: usize = list.len() / 2;
+        let first_half = list[0..pivot].to_vec();
+        let second_half = list[pivot..list.len()].to_vec();
+        let first_thread = thread::spawn(move || parallel_merge_sort(first_half, parallelism_depth - 1));
+        let second_thread = thread::spawn(move || parallel_merge_sort(second_half, parallelism_depth - 1));
+        zip(&first_thread.join().unwrap(), &second_thread.join().unwrap())
+    } else {
+        merge_sort(&list)
+    }
+}
+
 fn random_range(rng: &mut ThreadRng, n: usize, lower: usize, upper: usize) -> Vec<usize> {
     (0..n).map(|_| rng.gen_range(lower..upper)).collect::<Vec<usize>>()
 }
@@ -71,6 +87,12 @@ fn main() {
     let mut rng = rand::thread_rng();
     let list = random_range(&mut rng, 10_000, 0, 100);
     assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
+
+    let start = Instant::now();
+    let parallel_merge_sorted = parallel_merge_sort(list.clone(), 2);
+    assert!(is_sorted(&parallel_merge_sorted));
+    let duration = start.elapsed();
+    println!("Successfully sorted using parallel merge sort in {:#?}!", duration);
 
     let start = Instant::now();
     let merge_sorted = merge_sort(&list);
