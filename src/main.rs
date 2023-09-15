@@ -85,7 +85,7 @@ fn random_range(rng: &mut ThreadRng, n: usize, lower: usize, upper: usize) -> Ve
 
 fn main() {
     let mut rng = rand::thread_rng();
-    let list = random_range(&mut rng, 10_000, 0, 100);
+    let list = random_range(&mut rng, 50_000, 0, 100);
     assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
 
     let start = Instant::now();
