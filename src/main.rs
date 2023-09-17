@@ -55,12 +55,12 @@ fn zip<T: PartialOrd + Clone>(list1: &Vec<T>, list2: &Vec<T>) -> Vec<T> {
     new_list
 }
 
-fn merge_sort<T: PartialOrd + Clone>(list: &Vec<T>) -> Vec<T>{
+fn merge_sort<T: PartialOrd + Clone>(list: &[T]) -> Vec<T>{
     if list.len() == 1 {
-        list.clone()
+        list.to_vec()
     } else {
         let pivot: usize = list.len() / 2;
-        zip(&merge_sort(&list[0..pivot].to_vec()), &merge_sort(&list[pivot..list.len()].to_vec()))
+        zip(&merge_sort(&list[0..pivot]), &merge_sort(&list[pivot..list.len()]))
     }
 }
 
