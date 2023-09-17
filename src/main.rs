@@ -33,7 +33,7 @@ fn bubble_sort<T: PartialOrd + Clone>(list: &Vec<T>) -> Vec<T> {
 
 
 fn zip<T: PartialOrd + Clone>(list1: &Vec<T>, list2: &Vec<T>) -> Vec<T> {
-    let mut new_list: Vec<T> = vec![];
+    let mut new_list: Vec<T> = Vec::with_capacity(list1.len() + list2.len());
     let mut i = 0;
     let mut j = 0;
     while i < list1.len() || j < list2.len() {
