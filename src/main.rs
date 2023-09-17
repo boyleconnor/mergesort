@@ -126,7 +126,7 @@ fn test_bubble_sort() {
     let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
     let sorted_list = bubble_sort(&list);
-    assert!(is_sorted(&sorted_list));
+    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
@@ -134,5 +134,13 @@ fn test_merge_sort() {
     let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
     let sorted_list = merge_sort(&list);
-    assert!(is_sorted(&sorted_list));
+    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+}
+
+#[test]
+fn test_parallel_merge_sort() {
+    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
+    assert!(!is_sorted(&list));
+    let sorted_list = parallel_merge_sort(list, 2);
+    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
