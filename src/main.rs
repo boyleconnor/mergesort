@@ -33,24 +33,21 @@ fn bubble_sort<T: PartialOrd + Clone>(list: &Vec<T>) -> Vec<T> {
 }
 
 
-fn zip<T: PartialOrd + Clone>(list1: &Vec<T>, list2: &Vec<T>) -> Vec<T> {
+fn merge<T: PartialOrd + Clone>(list1: &Vec<T>, list2: &Vec<T>) -> Vec<T> {
     let mut new_list: Vec<T> = Vec::with_capacity(list1.len() + list2.len());
-    let mut i = 0;
-    let mut j = 0;
-    while i < list1.len() || j < list2.len() {
-        if i == list1.len() {
-            new_list.push(list2[j].clone());
-            j += 1;
-        } else if j == list2.len() {
-            new_list.push(list1[i].clone());
-            i += 1;
-        } else if list2[j] > list1[i] {
+    let (mut i, mut j) = (0, 0);
+    while i < list1.len() {
+        if j == list2.len() || list1[i] <= list2[j] {
             new_list.push(list1[i].clone());
             i += 1;
         } else {
             new_list.push(list2[j].clone());
             j += 1;
         }
+    }
+    while j < list2.len() {
+        new_list.push(list2[j].clone());
+        j += 1;
     }
 
     new_list
@@ -61,7 +58,7 @@ fn merge_sort<T: PartialOrd + Clone>(list: &[T]) -> Vec<T>{
         list.to_vec()
     } else {
         let pivot: usize = list.len() / 2;
-        zip(&merge_sort(&list[0..pivot]), &merge_sort(&list[pivot..list.len()]))
+        merge(&merge_sort(&list[0..pivot]), &merge_sort(&list[pivot..list.len()]))
     }
 }
 
@@ -82,7 +79,7 @@ fn _parallel_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: Arc
         let second_ref = Arc::clone(&list);
         let second_thread = thread::spawn(move || _parallel_merge_sort(second_ref, pivot, end, parallelism_depth - 1));
 
-        zip(&first_thread.join().unwrap(), &second_thread.join().unwrap())
+        merge(&first_thread.join().unwrap(), &second_thread.join().unwrap())
     } else {
         merge_sort(&list[begin..end])
     }
