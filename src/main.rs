@@ -78,10 +78,9 @@ fn _thread_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: Arc<[
         let first_ref = Arc::clone(&list);
         let first_thread = thread::spawn(move || _thread_merge_sort(first_ref, begin, pivot, parallelism_depth - 1));
 
-        let second_ref = Arc::clone(&list);
-        let second_thread = thread::spawn(move || _thread_merge_sort(second_ref, pivot, end, parallelism_depth - 1));
+        let second_half = _thread_merge_sort(list, pivot, end, parallelism_depth - 1);
 
-        merge(&first_thread.join().unwrap(), &second_thread.join().unwrap())
+        merge(&first_thread.join().unwrap(), &second_half)
     } else {
         merge_sort(&list[begin..end])
     }
@@ -112,7 +111,7 @@ async fn main() {
     assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
 
     let start = Instant::now();
-    let thread_merge_sorted = thread_merge_sort(&list, 2);
+    let thread_merge_sorted = thread_merge_sort(&list, 4);
     assert!(is_sorted(&thread_merge_sorted));
     let duration = start.elapsed();
     println!("Successfully sorted using thread merge sort in {:#?}!", duration);
