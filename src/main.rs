@@ -64,21 +64,22 @@ fn merge_sort<T: PartialOrd + Clone>(list: &[T]) -> Vec<T>{
     }
 }
 
-fn thread_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: &[T], parallelism_depth: u8) -> Vec<T> {
+fn thread_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: &[T], num_threads: u8) -> Vec<T> {
     let list_copy: Arc<[T]> = Arc::from(list.to_vec().into_boxed_slice());
-    _thread_merge_sort(list_copy, 0, list.len(), parallelism_depth)
+    _thread_merge_sort(list_copy, 0, list.len(), num_threads)
 }
 
-fn _thread_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: Arc<[T]>, begin: usize, end: usize, parallelism_depth: u8) -> Vec<T> {
+fn _thread_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: Arc<[T]>, begin: usize, end: usize, num_threads: u8) -> Vec<T> {
     if end - begin == 1 {
         list.to_vec()
-    } else if parallelism_depth > 0 {
+    } else if num_threads > 1 {
         let pivot: usize = (begin + end) / 2;
+        let left_num_threads = num_threads / 2;
 
         let first_ref = Arc::clone(&list);
-        let first_thread = thread::spawn(move || _thread_merge_sort(first_ref, begin, pivot, parallelism_depth - 1));
+        let first_thread = thread::spawn(move || _thread_merge_sort(first_ref, begin, pivot, left_num_threads));
 
-        let second_half = _thread_merge_sort(list, pivot, end, parallelism_depth - 1);
+        let second_half = _thread_merge_sort(list, pivot, end, num_threads - left_num_threads);
 
         merge(&first_thread.join().unwrap(), &second_half)
     } else {
@@ -111,7 +112,7 @@ async fn main() {
     assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
 
     let start = Instant::now();
-    let thread_merge_sorted = thread_merge_sort(&list, 4);
+    let thread_merge_sorted = thread_merge_sort(&list, 16);
     assert!(is_sorted(&thread_merge_sorted));
     let duration = start.elapsed();
     println!("Successfully sorted using thread merge sort in {:#?}!", duration);
