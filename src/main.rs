@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use rand::Rng;
 use rand::rngs::ThreadRng;
+use rayon;
+use rayon::prelude::*;
 use std::time::Instant;
 use std::thread;
 use tokio;
@@ -101,6 +103,19 @@ fn async_merge_sort<T: PartialOrd + Clone + Send + Sync>(list: &[T]) -> BoxFutur
     }
 }
 
+fn rayon_merge_sort<T: PartialOrd + Clone + Send + Sync>(list: &[T]) -> Vec<T> {
+    if list.len() == 1 {
+        list.to_vec()
+    } else {
+        let pivot= list.len() / 2;
+        let (first_half, second_half) = rayon::join(
+            || rayon_merge_sort(&list[0..pivot]),
+            || rayon_merge_sort(&list[pivot..list.len()])
+        );
+        merge(&first_half, &second_half)
+    }
+}
+
 fn random_range(rng: &mut ThreadRng, n: usize, lower: usize, upper: usize) -> Vec<usize> {
     (0..n).map(|_| rng.gen_range(lower..upper)).collect::<Vec<usize>>()
 }
@@ -116,6 +131,12 @@ async fn main() {
     assert!(is_sorted(&thread_merge_sorted));
     let duration = start.elapsed();
     println!("Successfully sorted using thread merge sort in {:#?}!", duration);
+
+    let start = Instant::now();
+    let rayon_merge_sorted = rayon_merge_sort(&list);
+    assert!(is_sorted(&rayon_merge_sorted));
+    let duration = start.elapsed();
+    println!("Successfully sorted using rayon merge sort in {:#?}!", duration);
 
     let start = Instant::now();
     let async_merge_sorted = async_merge_sort(&list).await;
@@ -179,5 +200,12 @@ fn test_async_merge_sort() {
     let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
     let sorted_list = tokio_test::block_on(async_merge_sort(&list));
+    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+}
+#[test]
+fn test_rayon_merge_sort() {
+    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
+    assert!(!is_sorted(&list));
+    let sorted_list = rayon_merge_sort(&list);
     assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
