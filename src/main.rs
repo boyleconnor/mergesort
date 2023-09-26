@@ -112,12 +112,58 @@ fn rayon_merge_sort<T: PartialOrd + Clone + Send + Sync>(list: &[T]) -> Vec<T> {
             || rayon_merge_sort(&list[0..pivot]),
             || rayon_merge_sort(&list[pivot..list.len()])
         );
+        // let mut output_vec: Vec<T> = vec![T::default(); first_half.len() + second_half.len()];
+        // rayon_merge(&first_half, &second_half, &mut output_vec);
+        // output_vec
         merge(&first_half, &second_half)
     }
 }
 
 fn random_range(rng: &mut ThreadRng, n: usize, lower: usize, upper: usize) -> Vec<usize> {
     (0..n).map(|_| rng.gen_range(lower..upper)).collect::<Vec<usize>>()
+}
+
+// FIXME: rayon_merge is still way slower than (serial) merge
+fn rayon_merge<T: PartialOrd + Ord + Clone + Send + Sync>(left_half: &[T], right_half: &[T], output: &mut [T]) {
+    // Base case:
+    if left_half.len() < 2 || right_half.len() < 2 {
+        let (mut i, mut j) = (0, 0);
+        while i < left_half.len() && j < right_half.len() {
+            if left_half[i] <= right_half[j] {
+                output[i+j] = left_half[i].clone();
+                i += 1;
+            } else {
+                output[i+j] = right_half[j].clone();
+                j += 1;
+            }
+        }
+        for k in i..left_half.len() { output[j + k] = left_half[k].clone(); }
+        for k in j..right_half.len() { output[i + k] = right_half[k].clone(); }
+        return;
+    }
+
+    // Recursive, parallel case
+    let (bigger_array, smaller_array) = if left_half.len() >= right_half.len() {
+        (left_half, right_half)
+    } else {
+        (right_half, left_half)
+    };
+
+    let i = bigger_array.len() / 2;
+    let target = bigger_array[i].clone();
+    let j = match smaller_array.binary_search(&target) {
+        Ok(val) => val,
+        Err(val) => val
+    };
+
+    let (output_bottom, output_top) = output.split_at_mut( i + j);
+    let (bigger_bottom, bigger_top) = bigger_array.split_at(i);
+    let (smaller_bottom, smaller_top) = smaller_array.split_at(j);
+
+    rayon::join(
+        || rayon_merge(bigger_bottom, smaller_bottom, output_bottom),
+        || rayon_merge(bigger_top, smaller_top, output_top)
+    );
 }
 
 #[tokio::main]
@@ -202,6 +248,14 @@ fn test_async_merge_sort() {
     let sorted_list = tokio_test::block_on(async_merge_sort(&list));
     assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
+
+#[test]
+fn test_rayon_merge() {
+    let output = &mut [0; 10];
+    rayon_merge(&[1, 3, 3, 5, 9, 9], &[1, 2, 4, 5], output);
+    assert_eq!(output, &[1, 1, 2, 3, 3, 4, 5, 5, 9, 9]);
+}
+
 #[test]
 fn test_rayon_merge_sort() {
     let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
