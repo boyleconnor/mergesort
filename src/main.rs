@@ -172,6 +172,22 @@ async fn main() {
     let list = random_range(&mut rng, 5_000_000, 0, 100);
     assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
 
+    let sorted_first_half = rayon_merge_sort(&list[0..list.len() / 2]);
+    let sorted_second_half = rayon_merge_sort(&list[list.len() / 2..list.len()]);
+
+    let start = Instant::now();
+    let mut rayon_merge_output = vec![0; list.len()];
+    rayon_merge(&sorted_first_half, &sorted_second_half, &mut rayon_merge_output);
+    assert!(is_sorted(&rayon_merge_output));
+    let duration = start.elapsed();
+    println!("Successfully rayon-merged in {:#?}!", duration);
+
+    let start = Instant::now();
+    let serial_merged = merge(&sorted_first_half, &sorted_second_half);
+    assert!(is_sorted(&serial_merged));
+    let duration = start.elapsed();
+    println!("Successfully merged in {:#?}!", duration);
+
     let start = Instant::now();
     let thread_merge_sorted = thread_merge_sort(&list, 16);
     assert!(is_sorted(&thread_merge_sorted));
