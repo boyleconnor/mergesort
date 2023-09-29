@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use rand::Rng;
 use rand::rngs::ThreadRng;
 use rayon;
@@ -113,32 +112,28 @@ fn thread_merge<T: Default + PartialOrd + Ord + Clone + Send + Sync + 'static>(l
 }
 
 fn thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'static>(list: &[T], num_threads: u8, use_thread_merge: bool) -> Vec<T> {
-    let list_copy: Arc<[T]> = Arc::from(list.to_vec().into_boxed_slice());
-    _thread_merge_sort(list_copy, 0, list.len(), num_threads, use_thread_merge)
-}
-
-fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'static>(list: Arc<[T]>, begin: usize, end: usize, num_threads: u8, use_thread_merge: bool) -> Vec<T> {
-    if end - begin == 1 {
+    if list.len() == 1 {
         list.to_vec()
     } else if num_threads > 1 {
-        let pivot: usize = (begin + end) / 2;
-        let output_len = end - begin;
+        let pivot: usize = list.len() / 2;
+        let (left_half, right_half) = list.split_at(pivot);
+
         let left_num_threads = num_threads / 2;
 
-        let first_ref = Arc::clone(&list);
-        let first_thread = thread::spawn(move || _thread_merge_sort(first_ref, begin, pivot, left_num_threads, use_thread_merge));
+        thread::scope(|s| {
+            let first_thread = s.spawn(|| thread_merge_sort(left_half, left_num_threads, use_thread_merge));
+            let second_half = thread_merge_sort(right_half, num_threads - left_num_threads, use_thread_merge);
 
-        let second_half = _thread_merge_sort(list, pivot, end, num_threads - left_num_threads, use_thread_merge);
-
-        let mut output = vec![T::default(); output_len];
-        if use_thread_merge {
-            thread_merge(&first_thread.join().unwrap(), &second_half, &mut output, num_threads)
-        } else {
-            merge( &first_thread.join().unwrap(), &second_half, &mut output);
-        }
-        output
+            let mut output = vec![T::default(); list.len()];
+            if use_thread_merge {
+                thread_merge(&first_thread.join().unwrap(), &second_half, &mut output, num_threads)
+            } else {
+                merge( &first_thread.join().unwrap(), &second_half, &mut output);
+            }
+            output
+        })
     } else {
-        merge_sort(&list[begin..end])
+        merge_sort(&list)
     }
 }
 
