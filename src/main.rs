@@ -290,10 +290,17 @@ fn test_merge_sort() {
 }
 
 #[test]
-fn test_parallel_merge_sort() {
+fn test_thread_merge_sort_with_thread_merge() {
     let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
-    let sorted_list = thread_merge_sort(&list, 2);
+    let sorted_list = thread_merge_sort(&list, 2, true);
+    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+}
+
+fn test_thread_merge_sort_with_serial_merge() {
+    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
+    assert!(!is_sorted(&list));
+    let sorted_list = thread_merge_sort(&list, 2, false);
     assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
