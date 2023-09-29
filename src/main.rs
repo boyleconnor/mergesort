@@ -194,46 +194,46 @@ fn main() {
     let start = Instant::now();
     let mut rayon_merge_output = vec![0; list.len()];
     rayon_merge(&sorted_first_half, &sorted_second_half, &mut rayon_merge_output);
-    assert!(is_sorted(&rayon_merge_output));
     let duration = start.elapsed();
+    assert!(is_sorted(&rayon_merge_output));
     println!("Successfully rayon-merged in {:#?}!", duration);
 
     let start = Instant::now();
     let mut thread_merge_output = vec![0; list.len()];
     thread_merge(&sorted_first_half, &sorted_second_half, &mut thread_merge_output, 16);
-    assert!(is_sorted(&thread_merge_output));
     let duration = start.elapsed();
+    assert!(is_sorted(&thread_merge_output));
     println!("Successfully thread-merged in {:#?}!", duration);
 
     let start = Instant::now();
     let mut serial_merged = vec![0; list.len()];
     merge(&sorted_first_half, &sorted_second_half, &mut serial_merged);
-    assert!(is_sorted(&serial_merged));
     let duration = start.elapsed();
+    assert!(is_sorted(&serial_merged));
     println!("Successfully serial-merged in {:#?}!", duration);
 
     let start = Instant::now();
     let thread_merge_sorted = thread_merge_sort(&list, 16, false);
-    assert!(is_sorted(&thread_merge_sorted));
     let duration = start.elapsed();
+    assert!(is_sorted(&thread_merge_sorted));
     println!("Successfully sorted using thread merge sort (with serial merge) in {:#?}!", duration);
 
     let start = Instant::now();
     let thread_merge_sorted = thread_merge_sort(&list, 16, true);
-    assert!(is_sorted(&thread_merge_sorted));
     let duration = start.elapsed();
+    assert!(is_sorted(&thread_merge_sorted));
     println!("Successfully sorted using thread merge sort (with thread merge) in {:#?}!", duration);
 
     let start = Instant::now();
     let rayon_merge_sorted = rayon_merge_sort(&list);
-    assert!(is_sorted(&rayon_merge_sorted));
     let duration = start.elapsed();
+    assert!(is_sorted(&rayon_merge_sorted));
     println!("Successfully sorted using rayon merge sort in {:#?}!", duration);
 
     let start = Instant::now();
     let merge_sorted = merge_sort(&list);
-    assert!(is_sorted(&merge_sorted));
     let duration = start.elapsed();
+    assert!(is_sorted(&merge_sorted));
     println!("Successfully sorted using merge sort in {:#?}!", duration);
 }
 
