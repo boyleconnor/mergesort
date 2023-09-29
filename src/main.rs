@@ -6,8 +6,6 @@ use rayon::prelude::*;
 use std::cmp;
 use std::time::Instant;
 use std::thread;
-use tokio;
-use futures::future::{BoxFuture, FutureExt};
 
 fn is_sorted<T: PartialOrd>(list: &Vec<T>) -> bool {
     let mut previous_item_option: Option<&T> = None;
@@ -147,20 +145,6 @@ fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'sta
     }
 }
 
-fn async_merge_sort<T: PartialOrd + Clone + Send + Sync>(list: &[T]) -> BoxFuture<Vec<T>> {
-    if list.len() == 1 {
-        async move { list.to_vec() }.boxed()
-    } else {
-        let pivot = list.len() / 2;
-        let first_thread = async_merge_sort(&list[0..pivot]);
-        let second_thread = async_merge_sort(&list[pivot..list.len()]);
-
-        async move {
-            merge(&first_thread.await, &second_thread.await)
-        }.boxed()
-    }
-}
-
 fn rayon_merge_sort<T: PartialOrd + Clone + Send + Sync>(list: &[T]) -> Vec<T> {
     if list.len() == 1 {
         list.to_vec()
@@ -224,8 +208,7 @@ fn rayon_merge<T: PartialOrd + Ord + Clone + Send + Sync>(left_half: &[T], right
     );
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let mut rng = rand::thread_rng();
     let list = random_range(&mut rng, 5_000_000, 0, 5_000_000);
     assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
@@ -269,12 +252,6 @@ async fn main() {
     assert!(is_sorted(&rayon_merge_sorted));
     let duration = start.elapsed();
     println!("Successfully sorted using rayon merge sort in {:#?}!", duration);
-
-    let start = Instant::now();
-    let async_merge_sorted = async_merge_sort(&list).await;
-    assert!(is_sorted(&async_merge_sorted));
-    let duration = start.elapsed();
-    println!("Successfully sorted using async merge sort in {:#?}!", duration);
 
     let start = Instant::now();
     let merge_sorted = merge_sort(&list);
@@ -328,13 +305,6 @@ fn test_parallel_merge_sort() {
 }
 
 #[test]
-fn test_async_merge_sort() {
-    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
-    assert!(!is_sorted(&list));
-    let sorted_list = tokio_test::block_on(async_merge_sort(&list));
-    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-}
-
 #[test]
 fn test_rayon_merge() {
     let output = &mut [0; 10];
