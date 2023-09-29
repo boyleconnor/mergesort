@@ -69,16 +69,7 @@ fn merge_sort<T: PartialOrd + Clone + Default>(list: &[T]) -> Vec<T> {
 }
 
 
-fn thread_merge<T: Default + PartialOrd + Ord + Clone + Send + Sync + 'static>(left: &[T], right: &[T], num_threads: u8) -> Vec<T> {
-    // This outperforms (serial) merge when: the range of integers is no more than an order of
-    // magnitude shorter than the length of the input list (or when the range is much higher than
-    // the length of the input list).
-    let mut output = vec![T::default(); left.len() + right.len()];
-    _thread_merge(&left, &right, &mut output, num_threads);
-    output.to_vec()
-}
-
-fn _thread_merge<T: Default + PartialOrd + Ord + Clone + Send + Sync + 'static>(left: &[T], right: &[T], output: &mut [T], num_threads: u8) {
+fn thread_merge<T: Default + PartialOrd + Ord + Clone + Send + Sync + 'static>(left: &[T], right: &[T], output: &mut [T], num_threads: u8) {
     if num_threads == 1 || left.len() <= 2 || right.len() <= 2 {
         let (mut i, mut j) = (0, 0);
         while i < left.len() || j < right.len() {
@@ -114,10 +105,10 @@ fn _thread_merge<T: Default + PartialOrd + Ord + Clone + Send + Sync + 'static>(
 
     thread::scope(|s| {
         s.spawn(|| {
-            _thread_merge(smaller_bottom, bigger_bottom,
+            thread_merge(smaller_bottom, bigger_bottom,
                           output_bottom, bottom_threads);
         });
-        _thread_merge(smaller_top, bigger_top, output_top, num_threads - bottom_threads);
+        thread_merge(smaller_top, bigger_top, output_top, num_threads - bottom_threads);
     });
 }
 
@@ -139,17 +130,13 @@ fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'sta
 
         let second_half = _thread_merge_sort(list, pivot, end, num_threads - left_num_threads, use_thread_merge);
 
+        let mut output = vec![T::default(); output_len];
         if use_thread_merge {
-            thread_merge(&first_thread.join().unwrap(), &second_half, num_threads)
+            thread_merge(&first_thread.join().unwrap(), &second_half, &mut output, num_threads)
         } else {
-            let mut output = vec![T::default(); output_len];
-            merge(
-                &first_thread.join().unwrap(),
-                &second_half,
-                &mut output
-            );
-            output
+            merge( &first_thread.join().unwrap(), &second_half, &mut output);
         }
+        output
     } else {
         merge_sort(&list[begin..end])
     }
@@ -233,7 +220,8 @@ fn main() {
     println!("Successfully rayon-merged in {:#?}!", duration);
 
     let start = Instant::now();
-    let thread_merge_output = thread_merge(&sorted_first_half, &sorted_second_half, 16);
+    let mut thread_merge_output = vec![0; list.len()];
+    thread_merge(&sorted_first_half, &sorted_second_half, &mut thread_merge_output, 16);
     assert!(is_sorted(&thread_merge_output));
     let duration = start.elapsed();
     println!("Successfully thread-merged in {:#?}!", duration);
