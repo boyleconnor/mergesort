@@ -19,22 +19,6 @@ fn is_sorted<T: PartialOrd>(list: &Vec<T>) -> bool {
     true
 }
 
-
-fn bubble_sort<T: PartialOrd + Clone>(list: &Vec<T>) -> Vec<T> {
-    let mut sortable_list = list.clone();
-    let len = sortable_list.len();
-    for i in 0..len {
-        for j in 1..len-i {
-            if sortable_list[j-1] > sortable_list[j] {
-                sortable_list.swap(j-1, j);
-            }
-        }
-    }
-
-    sortable_list
-}
-
-
 fn merge<T: PartialOrd + Clone>(list1: &[T], list2: &[T], output: &mut [T]) {
     let (mut i, mut j) = (0, 0);
     while i < list1.len() {
@@ -251,12 +235,6 @@ fn main() {
     assert!(is_sorted(&merge_sorted));
     let duration = start.elapsed();
     println!("Successfully sorted using merge sort in {:#?}!", duration);
-
-    // let start = Instant::now();
-    // let bubble_sorted = bubble_sort(&list);
-    // assert!(is_sorted(&bubble_sorted));
-    // let duration = start.elapsed();
-    // println!("Successfully sorted using bubble sort in {:?}!", duration);
 }
 
 #[test]
@@ -271,14 +249,6 @@ fn test_is_sorted() {
 fn test_is_not_sorted() {
     let list = vec![3, 2, 10];
     assert!(!is_sorted(&list));
-}
-
-#[test]
-fn test_bubble_sort() {
-    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
-    assert!(!is_sorted(&list));
-    let sorted_list = bubble_sort(&list);
-    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
@@ -304,7 +274,6 @@ fn test_thread_merge_sort_with_serial_merge() {
     assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
-#[test]
 #[test]
 fn test_rayon_merge() {
     let output = &mut [0; 10];
