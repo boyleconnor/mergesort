@@ -3,6 +3,7 @@ use rand::Rng;
 use rand::rngs::ThreadRng;
 use rayon;
 use rayon::prelude::*;
+use std::cmp;
 use std::time::Instant;
 use std::thread;
 use tokio;
@@ -66,12 +67,65 @@ fn merge_sort<T: PartialOrd + Clone>(list: &[T]) -> Vec<T>{
     }
 }
 
-fn thread_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: &[T], num_threads: u8) -> Vec<T> {
-    let list_copy: Arc<[T]> = Arc::from(list.to_vec().into_boxed_slice());
-    _thread_merge_sort(list_copy, 0, list.len(), num_threads)
+
+fn thread_merge<T: Default + PartialOrd + Ord + Clone + Send + Sync + 'static>(left: &[T], right: &[T], num_threads: u8) -> Vec<T> {
+    // This outperforms (serial) merge when: the range of integers is no more than an order of
+    // magnitude shorter than the length of the input list (or when the range is much higher than
+    // the length of the input list).
+    let mut output = vec![T::default(); left.len() + right.len()];
+    _thread_merge(&left, &right, &mut output, num_threads);
+    output.to_vec()
 }
 
-fn _thread_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: Arc<[T]>, begin: usize, end: usize, num_threads: u8) -> Vec<T> {
+fn _thread_merge<T: Default + PartialOrd + Ord + Clone + Send + Sync + 'static>(left: &[T], right: &[T], output: &mut [T], num_threads: u8) {
+    if num_threads == 1 || left.len() <= 2 || right.len() <= 2 {
+        let (mut i, mut j) = (0, 0);
+        while i < left.len() || j < right.len() {
+            if j == right.len() || (i < left.len() && left[i] <= right[j]) {
+                output[i+j] = left[i].clone();
+                i += 1;
+            } else {
+                output[i+j] = right[j].clone();
+                j += 1;
+            }
+        }
+        return;
+    }
+
+    let (smaller, bigger) = if left.len() <= right.len() {
+        (left, right)
+    } else {
+        (right, left)
+    };
+    let i = bigger.len() / 2;
+    // FIXME: Switch to .binary_search_by() to allow using floats
+    let j = match smaller.binary_search(&bigger[i]) {
+        Ok(val) => val,
+        Err(val) => val
+    };
+
+    let bottom_share = ((i + j)  as f64 / output.len() as f64) * num_threads as f64;
+    let bottom_threads = cmp::max(cmp::min(bottom_share.round() as u8, num_threads - 1), 1);
+
+    let (bigger_bottom, bigger_top) = bigger.split_at(i);
+    let (smaller_bottom, smaller_top) = smaller.split_at(j);
+    let (output_bottom, output_top) = output.split_at_mut(i + j);
+
+    thread::scope(|s| {
+        s.spawn(|| {
+            _thread_merge(smaller_bottom, bigger_bottom,
+                          output_bottom, bottom_threads);
+        });
+        _thread_merge(smaller_top, bigger_top, output_top, num_threads - bottom_threads);
+    });
+}
+
+fn thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'static>(list: &[T], num_threads: u8, use_thread_merge: bool) -> Vec<T> {
+    let list_copy: Arc<[T]> = Arc::from(list.to_vec().into_boxed_slice());
+    _thread_merge_sort(list_copy, 0, list.len(), num_threads, use_thread_merge)
+}
+
+fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'static>(list: Arc<[T]>, begin: usize, end: usize, num_threads: u8, use_thread_merge: bool) -> Vec<T> {
     if end - begin == 1 {
         list.to_vec()
     } else if num_threads > 1 {
@@ -79,11 +133,15 @@ fn _thread_merge_sort<T: PartialOrd + Clone + Send + Sync + 'static>(list: Arc<[
         let left_num_threads = num_threads / 2;
 
         let first_ref = Arc::clone(&list);
-        let first_thread = thread::spawn(move || _thread_merge_sort(first_ref, begin, pivot, left_num_threads));
+        let first_thread = thread::spawn(move || _thread_merge_sort(first_ref, begin, pivot, left_num_threads, use_thread_merge));
 
-        let second_half = _thread_merge_sort(list, pivot, end, num_threads - left_num_threads);
+        let second_half = _thread_merge_sort(list, pivot, end, num_threads - left_num_threads, use_thread_merge);
 
-        merge(&first_thread.join().unwrap(), &second_half)
+        if use_thread_merge {
+            thread_merge(&first_thread.join().unwrap(), &second_half, num_threads)
+        } else {
+            merge(&first_thread.join().unwrap(), &second_half)
+        }
     } else {
         merge_sort(&list[begin..end])
     }
@@ -123,7 +181,7 @@ fn random_range(rng: &mut ThreadRng, n: usize, lower: usize, upper: usize) -> Ve
     (0..n).map(|_| rng.gen_range(lower..upper)).collect::<Vec<usize>>()
 }
 
-// FIXME: rayon_merge is still way slower than (serial) merge
+// FIXME: rayon_merge is still way slower than (serial) merge (when used inside of rayon_merge)
 fn rayon_merge<T: PartialOrd + Ord + Clone + Send + Sync>(left_half: &[T], right_half: &[T], output: &mut [T]) {
     // Base case:
     if left_half.len() < 2 || right_half.len() < 2 {
@@ -169,7 +227,7 @@ fn rayon_merge<T: PartialOrd + Ord + Clone + Send + Sync>(left_half: &[T], right
 #[tokio::main]
 async fn main() {
     let mut rng = rand::thread_rng();
-    let list = random_range(&mut rng, 5_000_000, 0, 100);
+    let list = random_range(&mut rng, 5_000_000, 0, 5_000_000);
     assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
 
     let sorted_first_half = rayon_merge_sort(&list[0..list.len() / 2]);
@@ -183,16 +241,28 @@ async fn main() {
     println!("Successfully rayon-merged in {:#?}!", duration);
 
     let start = Instant::now();
+    let thread_merge_output = thread_merge(&sorted_first_half, &sorted_second_half, 16);
+    assert!(is_sorted(&thread_merge_output));
+    let duration = start.elapsed();
+    println!("Successfully thread-merged in {:#?}!", duration);
+
+    let start = Instant::now();
     let serial_merged = merge(&sorted_first_half, &sorted_second_half);
     assert!(is_sorted(&serial_merged));
     let duration = start.elapsed();
-    println!("Successfully merged in {:#?}!", duration);
+    println!("Successfully serial-merged in {:#?}!", duration);
 
     let start = Instant::now();
-    let thread_merge_sorted = thread_merge_sort(&list, 16);
+    let thread_merge_sorted = thread_merge_sort(&list, 16, false);
     assert!(is_sorted(&thread_merge_sorted));
     let duration = start.elapsed();
-    println!("Successfully sorted using thread merge sort in {:#?}!", duration);
+    println!("Successfully sorted using thread merge sort (with serial merge) in {:#?}!", duration);
+
+    let start = Instant::now();
+    let thread_merge_sorted = thread_merge_sort(&list, 16, true);
+    assert!(is_sorted(&thread_merge_sorted));
+    let duration = start.elapsed();
+    println!("Successfully sorted using thread merge sort (with thread merge) in {:#?}!", duration);
 
     let start = Instant::now();
     let rayon_merge_sorted = rayon_merge_sort(&list);
