@@ -267,6 +267,7 @@ fn test_thread_merge_sort_with_thread_merge() {
     assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
+#[test]
 fn test_thread_merge_sort_with_serial_merge() {
     let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
