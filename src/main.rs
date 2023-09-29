@@ -36,32 +36,35 @@ fn bubble_sort<T: PartialOrd + Clone>(list: &Vec<T>) -> Vec<T> {
 }
 
 
-fn merge<T: PartialOrd + Clone>(list1: &[T], list2: &[T]) -> Vec<T> {
-    let mut new_list: Vec<T> = Vec::with_capacity(list1.len() + list2.len());
+fn merge<T: PartialOrd + Clone>(list1: &[T], list2: &[T], output: &mut [T]) {
     let (mut i, mut j) = (0, 0);
     while i < list1.len() {
         if j == list2.len() || list1[i] <= list2[j] {
-            new_list.push(list1[i].clone());
+            output[i+j] = list1[i].clone();
             i += 1;
         } else {
-            new_list.push(list2[j].clone());
+            output[i+j] = list2[j].clone();
             j += 1;
         }
     }
     while j < list2.len() {
-        new_list.push(list2[j].clone());
+        output[i+j] = list2[j].clone();
         j += 1;
     }
-
-    new_list
 }
 
-fn merge_sort<T: PartialOrd + Clone>(list: &[T]) -> Vec<T>{
+fn merge_sort<T: PartialOrd + Clone + Default>(list: &[T]) -> Vec<T> {
     if list.len() == 1 {
         list.to_vec()
     } else {
         let pivot: usize = list.len() / 2;
-        merge(&merge_sort(&list[0..pivot]), &merge_sort(&list[pivot..list.len()]))
+        let mut output = vec![T::default(); list.len()];
+        merge(
+            &merge_sort(&list[0..pivot]),
+            &merge_sort(&list[pivot..list.len()]),
+            &mut output
+        );
+        output.to_vec()
     }
 }
 
@@ -128,6 +131,7 @@ fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'sta
         list.to_vec()
     } else if num_threads > 1 {
         let pivot: usize = (begin + end) / 2;
+        let output_len = end - begin;
         let left_num_threads = num_threads / 2;
 
         let first_ref = Arc::clone(&list);
@@ -138,14 +142,20 @@ fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'sta
         if use_thread_merge {
             thread_merge(&first_thread.join().unwrap(), &second_half, num_threads)
         } else {
-            merge(&first_thread.join().unwrap(), &second_half)
+            let mut output = vec![T::default(); output_len];
+            merge(
+                &first_thread.join().unwrap(),
+                &second_half,
+                &mut output
+            );
+            output
         }
     } else {
         merge_sort(&list[begin..end])
     }
 }
 
-fn rayon_merge_sort<T: PartialOrd + Clone + Send + Sync>(list: &[T]) -> Vec<T> {
+fn rayon_merge_sort<T: PartialOrd + Clone + Default + Send + Sync>(list: &[T]) -> Vec<T> {
     if list.len() == 1 {
         list.to_vec()
     } else {
@@ -154,10 +164,9 @@ fn rayon_merge_sort<T: PartialOrd + Clone + Send + Sync>(list: &[T]) -> Vec<T> {
             || rayon_merge_sort(&list[0..pivot]),
             || rayon_merge_sort(&list[pivot..list.len()])
         );
-        // let mut output_vec: Vec<T> = vec![T::default(); first_half.len() + second_half.len()];
-        // rayon_merge(&first_half, &second_half, &mut output_vec);
-        // output_vec
-        merge(&first_half, &second_half)
+        let mut output = vec![T::default(); list.len()];
+        merge(&first_half, &second_half, &mut output);
+        output
     }
 }
 
@@ -230,7 +239,8 @@ fn main() {
     println!("Successfully thread-merged in {:#?}!", duration);
 
     let start = Instant::now();
-    let serial_merged = merge(&sorted_first_half, &sorted_second_half);
+    let mut serial_merged = vec![0; list.len()];
+    merge(&sorted_first_half, &sorted_second_half, &mut serial_merged);
     assert!(is_sorted(&serial_merged));
     let duration = start.elapsed();
     println!("Successfully serial-merged in {:#?}!", duration);
