@@ -36,18 +36,20 @@ fn merge<T: PartialOrd + Clone>(list1: &[T], list2: &[T], output: &mut [T]) {
     }
 }
 
-fn merge_sort<T: PartialOrd + Clone + Default>(list: &[T]) -> Vec<T> {
+fn merge_sort<T: PartialOrd + Clone + Default>(list: &mut [T], scratch_space: &mut [T]) {
     if list.len() == 1 {
-        list.to_vec()
+        return;
     } else {
         let pivot: usize = list.len() / 2;
-        let mut output = vec![T::default(); list.len()];
-        merge(
-            &merge_sort(&list[0..pivot]),
-            &merge_sort(&list[pivot..list.len()]),
-            &mut output
-        );
-        output.to_vec()
+        let (left_half, right_half) = list.split_at_mut(pivot);
+        let (left_scratch, right_scratch) = scratch_space.split_at_mut(pivot);
+
+        merge_sort(left_half, left_scratch);
+        merge_sort(right_half, right_scratch);
+        merge(left_half, right_half, scratch_space);
+        for i in 0..scratch_space.len() {
+            list[i] = scratch_space[i].clone();
+        }
     }
 }
 
@@ -117,7 +119,10 @@ fn thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'stat
             output
         })
     } else {
-        merge_sort(&list)
+        let mut list_copy = list.to_vec();
+        let mut scratch = vec![T::default(); list.len()];
+        merge_sort(&mut list_copy, &mut scratch);
+        list_copy.to_vec()
     }
 }
 
@@ -230,10 +235,12 @@ fn main() {
     assert!(is_sorted(&rayon_merge_sorted));
     println!("Successfully sorted using rayon merge sort in {:#?}!", duration);
 
+    let mut serial_sorted = list.clone();
     let start = Instant::now();
-    let merge_sorted = merge_sort(&list);
+    let mut scratch = vec![0; list.len()];
+    merge_sort(&mut serial_sorted, &mut scratch);
     let duration = start.elapsed();
-    assert!(is_sorted(&merge_sorted));
+    assert!(is_sorted(&serial_sorted));
     println!("Successfully sorted using merge sort in {:#?}!", duration);
 }
 
@@ -253,10 +260,11 @@ fn test_is_not_sorted() {
 
 #[test]
 fn test_merge_sort() {
-    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
+    let mut list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
-    let sorted_list = merge_sort(&list);
-    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    let mut scratch = vec![0; list.len()];
+    merge_sort(&mut list, &mut scratch);
+    assert_eq!(list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
