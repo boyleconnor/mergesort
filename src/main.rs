@@ -131,7 +131,7 @@ fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Send + Sync + 'static>(list:
     }
 }
 
-// FIXME: rayon_merge is still way slower than (serial) merge (when used inside of rayon_merge)
+// FIXME: rayon_merge is still way slower than (serial) merge (when used inside of rayon_merge_sort)
 fn rayon_merge<T: PartialOrd + Ord + Clone + Send + Sync>(left_half: &[T], right_half: &[T], output: &mut [T]) {
     // Base case:
     if left_half.len() < 2 || right_half.len() < 2 {
