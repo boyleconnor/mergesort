@@ -35,7 +35,12 @@ fn merge<T: PartialOrd + Clone>(list1: &[T], list2: &[T], output: &mut [T]) {
     }
 }
 
-fn merge_sort<T: PartialOrd + Clone>(list: &mut [T], scratch_space: &mut [T]) {
+fn merge_sort<T: PartialOrd + Clone + Default>(list: &mut [T]) {
+    let scratch = &mut vec![T::default(); list.len()];
+    _merge_sort(list, scratch);
+}
+
+fn _merge_sort<T: PartialOrd + Clone>(list: &mut [T], scratch_space: &mut [T]) {
     if list.len() == 1 {
         return;
     } else {
@@ -43,8 +48,8 @@ fn merge_sort<T: PartialOrd + Clone>(list: &mut [T], scratch_space: &mut [T]) {
         let (left_half, right_half) = list.split_at_mut(pivot);
         let (left_scratch, right_scratch) = scratch_space.split_at_mut(pivot);
 
-        merge_sort(left_half, left_scratch);
-        merge_sort(right_half, right_scratch);
+        _merge_sort(left_half, left_scratch);
+        _merge_sort(right_half, right_scratch);
         merge(left_half, right_half, scratch_space);
         list.clone_from_slice(scratch_space);
     }
@@ -122,7 +127,7 @@ fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Send + Sync + 'static>(list:
         }
         list.clone_from_slice(scratch);
     } else {
-        merge_sort(list, scratch);
+        _merge_sort(list, scratch);
     }
 }
 
@@ -250,8 +255,7 @@ fn main() {
 
     let mut serial_sorted = list.clone();
     let start = Instant::now();
-    let mut scratch = vec![0; list.len()];
-    merge_sort(&mut serial_sorted, &mut scratch);
+    merge_sort(&mut serial_sorted);
     let duration = start.elapsed();
     assert!(is_sorted(&serial_sorted));
     println!("Successfully sorted using merge sort in {:#?}!", duration);
@@ -275,8 +279,7 @@ fn test_is_not_sorted() {
 fn test_merge_sort() {
     let mut list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
-    let mut scratch = vec![0; list.len()];
-    merge_sort(&mut list, &mut scratch);
+    merge_sort(&mut list);
     assert_eq!(list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
