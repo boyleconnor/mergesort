@@ -35,7 +35,7 @@ fn merge<T: PartialOrd + Clone>(list1: &[T], list2: &[T], output: &mut [T]) {
     }
 }
 
-fn merge_sort<T: PartialOrd + Clone + Default>(list: &mut [T], scratch_space: &mut [T]) {
+fn merge_sort<T: PartialOrd + Clone>(list: &mut [T], scratch_space: &mut [T]) {
     if list.len() == 1 {
         return;
     } else {
