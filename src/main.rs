@@ -130,18 +130,7 @@ fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Send + Sync + 'static>(list:
 fn rayon_merge<T: PartialOrd + Ord + Clone + Send + Sync>(left_half: &[T], right_half: &[T], output: &mut [T]) {
     // Base case:
     if left_half.len() < 2 || right_half.len() < 2 {
-        let (mut i, mut j) = (0, 0);
-        while i < left_half.len() && j < right_half.len() {
-            if left_half[i] <= right_half[j] {
-                output[i+j] = left_half[i].clone();
-                i += 1;
-            } else {
-                output[i+j] = right_half[j].clone();
-                j += 1;
-            }
-        }
-        for k in i..left_half.len() { output[j + k] = left_half[k].clone(); }
-        for k in j..right_half.len() { output[i + k] = right_half[k].clone(); }
+        merge(left_half, right_half, output);
         return;
     }
 
@@ -169,22 +158,30 @@ fn rayon_merge<T: PartialOrd + Ord + Clone + Send + Sync>(left_half: &[T], right
     );
 }
 
-fn rayon_merge_sort<T: PartialOrd + Ord + Clone + Default + Send + Sync>(list: &[T], use_rayon_merge: bool) -> Vec<T> {
+fn rayon_merge_sort<T: PartialOrd + Ord + Clone + Default + Send + Sync>(list: &mut [T], use_rayon_merge: bool) {
+    let scratch = &mut vec![T::default(); list.len()];
+    _rayon_merge_sort(list, scratch, use_rayon_merge);
+}
+
+fn _rayon_merge_sort<T: PartialOrd + Ord + Clone + Default + Send + Sync>(list: &mut [T], scratch: &mut [T], use_rayon_merge: bool) {
     if list.len() == 1 {
-        list.to_vec()
+        return;
     } else {
         let pivot= list.len() / 2;
-        let (first_half, second_half) = rayon::join(
-            || rayon_merge_sort(&list[0..pivot], use_rayon_merge),
-            || rayon_merge_sort(&list[pivot..list.len()], use_rayon_merge)
+        let (left_list, right_list) = list.split_at_mut(pivot);
+        let (left_scratch, right_scratch) = scratch.split_at_mut(pivot);
+
+        rayon::join(
+            || _rayon_merge_sort(left_list, left_scratch, use_rayon_merge),
+            || _rayon_merge_sort(right_list, right_scratch, use_rayon_merge)
         );
-        let mut output = vec![T::default(); list.len()];
+
         if use_rayon_merge {
-            rayon_merge(&first_half, &second_half, &mut output)
+            rayon_merge(left_list, right_list, scratch)
         } else {
-            merge(&first_half, &second_half, &mut output);
+            merge(left_list, right_list, scratch);
         }
-        output
+        list.clone_from_slice(scratch);
     }
 }
 
@@ -197,8 +194,10 @@ fn main() {
     let list = random_range(&mut rng, 5_000_000, 0, 5_000_000);
     assert!(!is_sorted(&list), "`list` is sorted! This can technically occur by chance, but should be very unlikely if `n` is sufficiently high.");
 
-    let sorted_first_half = rayon_merge_sort(&list[0..list.len() / 2], false);
-    let sorted_second_half = rayon_merge_sort(&list[list.len() / 2..list.len()], false);
+    let mut sorted_first_half = (list[0..list.len() / 2]).to_vec();
+    let mut sorted_second_half = (list[list.len() / 2..list.len()]).to_vec();
+    rayon_merge_sort(&mut sorted_first_half, false);
+    rayon_merge_sort(&mut sorted_second_half, false);
 
     let start = Instant::now();
     let mut rayon_merge_output = vec![0; list.len()];
@@ -235,11 +234,19 @@ fn main() {
     assert!(is_sorted(&list_copy));
     println!("Successfully sorted using thread merge sort (with thread merge) in {:#?}!", duration);
 
+    let mut list_copy = list.clone();
     let start = Instant::now();
-    let rayon_merge_sorted = rayon_merge_sort(&list, false);
+    rayon_merge_sort(&mut list_copy, false);
     let duration = start.elapsed();
-    assert!(is_sorted(&rayon_merge_sorted));
-    println!("Successfully sorted using rayon merge sort in {:#?}!", duration);
+    assert!(is_sorted(&list_copy));
+    println!("Successfully sorted using rayon merge sort (with serial merge) in {:#?}!", duration);
+
+    let mut list_copy = list.clone();
+    let start = Instant::now();
+    rayon_merge_sort(&mut list_copy, true);
+    let duration = start.elapsed();
+    assert!(is_sorted(&list_copy));
+    println!("Successfully sorted using rayon merge sort (with rayon merge) in {:#?}!", duration);
 
     let mut serial_sorted = list.clone();
     let start = Instant::now();
@@ -298,16 +305,16 @@ fn test_rayon_merge() {
 
 #[test]
 fn test_rayon_merge_sort() {
-    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
+    let mut list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
-    let sorted_list = rayon_merge_sort(&list, false);
-    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    rayon_merge_sort(&mut list, false);
+    assert_eq!(list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
 fn test_rayon_merge_sort_with_rayon_merge() {
-    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
+    let mut list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
-    let sorted_list = rayon_merge_sort(&list, true);
-    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    rayon_merge_sort(&mut list, true);
+    assert_eq!(list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
