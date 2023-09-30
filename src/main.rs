@@ -51,7 +51,7 @@ fn merge_sort<T: PartialOrd + Clone>(list: &mut [T], scratch_space: &mut [T]) {
 }
 
 
-fn thread_merge<T: Default + PartialOrd + Ord + Clone + Send + Sync + 'static>(left: &[T], right: &[T], output: &mut [T], num_threads: u8) {
+fn thread_merge<T: PartialOrd + Ord + Clone + Send + Sync + 'static>(left: &[T], right: &[T], output: &mut [T], num_threads: u8) {
     if num_threads == 1 || left.len() <= 2 || right.len() <= 2 {
         let (mut i, mut j) = (0, 0);
         while i < left.len() || j < right.len() {
