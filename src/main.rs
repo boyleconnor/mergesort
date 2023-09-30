@@ -1,7 +1,6 @@
 use rand::Rng;
 use rand::rngs::ThreadRng;
 use rayon;
-use rayon::prelude::*;
 use std::cmp;
 use std::time::Instant;
 use std::thread;
