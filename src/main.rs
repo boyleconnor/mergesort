@@ -94,32 +94,35 @@ fn thread_merge<T: PartialOrd + Ord + Clone + Send + Sync + 'static>(left: &[T],
     });
 }
 
-fn thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'static>(list: &[T], num_threads: u8, use_thread_merge: bool) -> Vec<T> {
-    if list.len() == 1 {
-        list.to_vec()
-    } else if num_threads > 1 {
-        let pivot: usize = list.len() / 2;
-        let (left_half, right_half) = list.split_at(pivot);
+fn thread_merge_sort<T: Ord + PartialOrd + Clone + Default + Send + Sync + 'static>(list: &mut [T], num_threads: u8, use_thread_merge: bool) {
+    let scratch = &mut vec![T::default(); list.len()];
+    _thread_merge_sort(list, scratch, num_threads, use_thread_merge);
+}
 
+fn _thread_merge_sort<T: Ord + PartialOrd + Clone + Send + Sync + 'static>(list: &mut [T], scratch: &mut [T], num_threads: u8, use_thread_merge: bool) {
+    if list.len() == 1 {
+        return;
+    } else if num_threads > 1 {
         let left_num_threads = num_threads / 2;
+        let pivot: usize = list.len() / 2;
+
+        let (left_half, right_half) = list.split_at_mut(pivot);
+        let (left_scratch, right_scratch) = scratch.split_at_mut(pivot);
 
         thread::scope(|s| {
-            let first_thread = s.spawn(|| thread_merge_sort(left_half, left_num_threads, use_thread_merge));
-            let second_half = thread_merge_sort(right_half, num_threads - left_num_threads, use_thread_merge);
+            let left_thread = s.spawn(|| { _thread_merge_sort(left_half, left_scratch, left_num_threads, use_thread_merge); });
+            _thread_merge_sort(right_half, right_scratch, num_threads - left_num_threads, use_thread_merge);
+            left_thread.join().unwrap();
+        });
 
-            let mut output = vec![T::default(); list.len()];
-            if use_thread_merge {
-                thread_merge(&first_thread.join().unwrap(), &second_half, &mut output, num_threads)
-            } else {
-                merge( &first_thread.join().unwrap(), &second_half, &mut output);
-            }
-            output
-        })
+        if use_thread_merge {
+            thread_merge(left_half, right_half, scratch, num_threads);
+        } else {
+            merge(left_half, right_half, scratch);
+        }
+        list.clone_from_slice(scratch);
     } else {
-        let mut list_copy = list.to_vec();
-        let mut scratch = vec![T::default(); list.len()];
-        merge_sort(&mut list_copy, &mut scratch);
-        list_copy.to_vec()
+        merge_sort(list, scratch);
     }
 }
 
@@ -214,16 +217,18 @@ fn main() {
     assert!(is_sorted(&serial_merged));
     println!("Successfully serial-merged in {:#?}!", duration);
 
+    let mut list_copy = list.clone();
     let start = Instant::now();
-    let thread_merge_sorted = thread_merge_sort(&list, 24, false);
+    thread_merge_sort(&mut list_copy, 24, false);
     let duration = start.elapsed();
-    assert!(is_sorted(&thread_merge_sorted));
+    assert!(is_sorted(&list_copy));
     println!("Successfully sorted using thread merge sort (with serial merge) in {:#?}!", duration);
 
+    let mut list_copy = list.clone();
     let start = Instant::now();
-    let thread_merge_sorted = thread_merge_sort(&list, 24, true);
+    thread_merge_sort(&mut list_copy, 24, true);
     let duration = start.elapsed();
-    assert!(is_sorted(&thread_merge_sorted));
+    assert!(is_sorted(&list_copy));
     println!("Successfully sorted using thread merge sort (with thread merge) in {:#?}!", duration);
 
     let start = Instant::now();
@@ -266,18 +271,18 @@ fn test_merge_sort() {
 
 #[test]
 fn test_thread_merge_sort_with_thread_merge() {
-    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
+    let mut list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
-    let sorted_list = thread_merge_sort(&list, 2, true);
-    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    thread_merge_sort(&mut list, 2, true);
+    assert_eq!(list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
 fn test_thread_merge_sort_with_serial_merge() {
-    let list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
+    let mut list = vec![2, 5, 10, 3, 4, 1, 6, 9, 8, 7];
     assert!(!is_sorted(&list));
-    let sorted_list = thread_merge_sort(&list, 2, false);
-    assert_eq!(sorted_list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    thread_merge_sort(&mut list, 2, false);
+    assert_eq!(list, vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
 }
 
 #[test]
