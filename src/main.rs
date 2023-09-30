@@ -46,9 +46,7 @@ fn merge_sort<T: PartialOrd + Clone>(list: &mut [T], scratch_space: &mut [T]) {
         merge_sort(left_half, left_scratch);
         merge_sort(right_half, right_scratch);
         merge(left_half, right_half, scratch_space);
-        for i in 0..scratch_space.len() {
-            list[i] = scratch_space[i].clone();
-        }
+        list.clone_from_slice(scratch_space);
     }
 }
 
