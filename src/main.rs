@@ -205,7 +205,7 @@ fn main() {
 
     let start = Instant::now();
     let mut thread_merge_output = vec![0; list.len()];
-    thread_merge(&sorted_first_half, &sorted_second_half, &mut thread_merge_output, 16);
+    thread_merge(&sorted_first_half, &sorted_second_half, &mut thread_merge_output, 24);
     let duration = start.elapsed();
     assert!(is_sorted(&thread_merge_output));
     println!("Successfully thread-merged in {:#?}!", duration);
@@ -218,13 +218,13 @@ fn main() {
     println!("Successfully serial-merged in {:#?}!", duration);
 
     let start = Instant::now();
-    let thread_merge_sorted = thread_merge_sort(&list, 16, false);
+    let thread_merge_sorted = thread_merge_sort(&list, 24, false);
     let duration = start.elapsed();
     assert!(is_sorted(&thread_merge_sorted));
     println!("Successfully sorted using thread merge sort (with serial merge) in {:#?}!", duration);
 
     let start = Instant::now();
-    let thread_merge_sorted = thread_merge_sort(&list, 16, true);
+    let thread_merge_sorted = thread_merge_sort(&list, 24, true);
     let duration = start.elapsed();
     assert!(is_sorted(&thread_merge_sorted));
     println!("Successfully sorted using thread merge sort (with thread merge) in {:#?}!", duration);
